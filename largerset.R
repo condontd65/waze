@@ -69,12 +69,52 @@ for (street in streets){
   
 waze.split <- split(waze.big, waze.big$route_id) 
 
+# Write function to create new dataframe
+newdf.waze <- function(df) {
+  dt <- data.table(df[1,1], df[1,2], df[1,3], df[1,4], df[1,5], mean(df[,6], df[1,10], df[1,11]))
+  return(dt)
+}
 
 
 
 
 
-  
+
+
+
+
+for (i in 1:87) {
+  nam <- paste(i)
+  #print(paste(i))
+  #num <- as.character(i)
+  assign(nam, newdf.waze(waze.split[i]))
+  #print(i)
+}
+
+for (i in unique(waze.big$route_id)) {
+  num <- as.character(i)
+  print(waze.split$num)
+}
+
+
+t <- 10347
+t.p <- paste(t)
+newdf.waze(waze.split$t)
+
+
+
+lapply(waze.split, newdf.waze)
+
+
+
+dt <- data.table(waze.split$`10347`[1,1], 
+                                        waze.split$`10347`[1,2], 
+                                        waze.split$`10347`[1,3], 
+                                        waze.split$`10347`[1,4], 
+                                        waze.split$`10347`[1,5], 
+                                        mean(waze.split$`10347`[,6]),
+                                        waze.split$`10347`[1,10], 
+                                        waze.split$`10347`[1,11]) 
   
   
   
