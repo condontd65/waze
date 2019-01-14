@@ -238,11 +238,6 @@ time$perdif <- percent.dif(time$segmented_route, time$full_route)
 
 
 
-
-
-
-
-
 ## Plot it out
 # Length plotting
 length.nodif <- data.table(length$full_route, length$segmented_route, length$route)

@@ -16,6 +16,8 @@ library(ggplot2)
 library(forcats)
 library(data.table)
 library(reshape2)
+library(xlsx)
+library(googlesheets)
 
 
 #  Set up connection to PostgreSQL server
@@ -247,15 +249,180 @@ washington.r$length <- c(segment.length(washington.m,1,5), segment.length(washin
                      segment.length(washington.m,7,5), segment.length(washington.m,8,5), segment.length(washington.m,9,5),
                      segment.length(washington.m,10,5))
 
+# Extract specific valued sums out of tables to graph
+tm.beacon <- sum(beacon.r$time)
+lm.beacon <- sum(beacon.r$length)
+
+tm.bluehill <- sum(bluehill.r$time)
+lm.bluehill <- sum(bluehill.r$length)
+
+tm.broadway <- sum(broadway.r$time)
+lm.broadway <- sum(broadway.r$length)
+
+tm.columbia <- sum(columbia.r$time)
+lm.columbia <- sum(columbia.r$length)
+
+tm.columbus <- sum(columbus.r$time)
+lm.columbus <- sum(columbus.r$length)
+
+tm.commonwealth <- sum(commonwealth.r$time)
+lm.commonwealth <- sum(commonwealth.r$length)
+
+tm.huntington <- sum(huntington.r$time)
+lm.huntington <- sum(huntington.r$length)
+
+tm.hydepark <- sum(hydepark.r$time)
+lm.hydepark <- sum(hydepark.r$length)
+
+tm.massachusetts <- sum(massachusetts.r$time)
+lm.massachusetts <- sum(massachusetts.r$length)
+
+tm.tremont <- sum(tremont.r$time)
+lm.tremont <- sum(tremont.r$length)
+
+tm.washington <- sum(washington.r$time)
+lm.washington <- sum(washington.r$length)
+
+# Create columns from these values for two different tables for length / time (full_route, segmented_route, route)
+l.full <- data.table(c(lf.beacon,lf.bluehill,lf.broadway,lf.columbia,lf.columbus,lf.commonwealth,lf.huntington,lf.hydepark,
+                       lf.massachusetts,lf.tremont,lf.washington))
+l.seg <- data.table(c(lm.beacon,lm.bluehill,lm.broadway,lm.columbia,lm.columbus,lm.commonwealth,lm.huntington,lm.hydepark,
+                      lm.massachusetts,lm.tremont,lm.washington))
+routes <- data.table(streets)
+
+t.full <- data.table(c(tf.beacon,tf.bluehill,tf.broadway,tf.columbia,tf.columbus,tf.commonwealth,tf.huntington,tf.hydepark,
+                       tf.massachusetts,tf.tremont,tf.washington))
+t.seg <- data.table(c(tm.beacon,tm.bluehill,tm.broadway,tm.columbia,tm.columbus,tm.commonwealth,tm.huntington,tm.hydepark,
+                      tm.massachusetts,tm.tremont,tm.washington))
+
+# Bind the columns together into several data tables
+length <- cbind(l.full, l.seg, routes)
+colnames(length) <- c('full','segmented','route')
+
+time <- cbind(t.full, t.seg, routes)
+colnames(time) <- c('full','segmented','route')
+
+all <- cbind(l.full, l.seg, t.full, t.seg, routes)
+colnames(all) <- c('length_full','length_segmented','time_full','time_segmented','route')
 
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
+# Additional calculations for tables
+# Percent difference field
+percent.dif <- function(new, old) {
+  percentage <- ((new - old) / old) * 100
+}
+
+length$dif <- abs(length$full - length$segmented)
+length$dif_percent <- percent.dif(length$segmented, length$full)
+
+time$dif <- abs(time$full - time$segmented)
+time$dif_percent <- percent.dif(time$segmented, time$full)
+
+all$mph_full <- round(all$length_full / all$time_full / 1609.34 * 3600,
+                      digits = 2)
+all$mph_segmented <- round(all$length_segmented / all$time_segmented / 1609.34 * 3600,
+                           digits = 2)
+
+mph <- data.table(all$mph_full,all$mph_segmented,all$route)
+colnames(mph) <- c('full_route','segmented_route','route')
+mph$dif <- abs(mph$full_route - mph$segmented_route)
+mph$dif_percent <- percent.dif(mph$segmented_route, mph$full_route)
+
+
+
+### Plots
+# Time plotting
+time.nodif <- data.table(time$full, time$segmented, time$route)
+colnames(time.nodif) <- c('Full Route','Segmented Routes','route')
+time2 <- melt(time.nodif, id.vars = 'route')
+head(time2)
+colnames(time2) <- c('route','Legend','value')
+
+l.t <-ggplot(time2, aes(x = route, y = value, fill = Legend, label = value)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+
+png("images/timelast10hrs.png", width = 1200,
+    height = 900)
+l.t +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Route Time Averaged Over Last 10 Hours") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(size = 3, position = position_dodge(width = 1), vjust = -0.5) +
+  ylab("Seconds") +
+  xlab("Test Routes") +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1750)) +
+  scale_color_hue(labels = c("Full Route", "Segmented Routes"))
+dev.off()
+
+
+# Length plotting
+length.nodif <- data.table(length$full, length$segmented, length$route)
+colnames(length.nodif) <- c('Full Route','Segmented Routes','route')
+length2 <- melt(length.nodif, id.vars = 'route')
+head(length2)
+colnames(length2) <- c('route','Legend','value')
+
+l.p <-ggplot(length2, aes(x = route, y = value, fill = Legend, label = value)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+
+png("images/lengthcomparison.png", width = 1200,
+    height = 900)
+l.p +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Route Length Comparison") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(size = 3, position = position_dodge(width = 1), vjust = -0.5) +
+  ylab("Meters") +
+  xlab("Test Routes") +
+  scale_y_continuous(expand = c(0,0), limits = c(0,6800)) +
+  scale_color_hue(labels = c("Full Route", "Segmented Routes"))
+dev.off()
+
+
+# Speed plotting
+mph.nodif <- data.table(mph$full, mph$segmented, mph$route)
+colnames(mph.nodif) <- c('Full Route','Segmented Routes','route')
+mph2 <- melt(mph.nodif, id.vars = 'route')
+head(mph2)
+colnames(mph2) <- c('route','Legend','value')
+
+l.s <-ggplot(mph2, aes(x = route, y = value, fill = Legend, label = value)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+
+png("images/speedlast10hrs.png", width = 1200,
+    height = 900)
+l.s +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Route Speed Averaged Over Last 10 Hours") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(size = 3, position = position_dodge(width = 1), vjust = -0.5) +
+  ylab("Miles per Hour") +
+  xlab("Test Routes") +
+  scale_y_continuous(expand = c(0,0), limits = c(0,30)) +
+  scale_color_hue(labels = c("Full Route", "Segmented Routes"))
+dev.off()
+
+# Create final table
+all$length_dif <- length$dif
+all$length_dif_percent <- length$dif_percent
+all$time_dif <- time$dif
+all$time_dif_percent <- time$dif
+all$mph_full <- mph$full_route
+all$mph_segmented <- mph$segmented_route
+all$mph_dif <- mph$dif
+all$mph_dif_percent <- mph$dif_percent
+waze.latest <- subset(all, select = c(route,length_full,length_segmented,length_dif,length_dif_percent,
+                                       time_full,time_segmented,time_dif,time_dif_percent,
+                                       mph_full,mph_segmented,mph_dif,mph_dif_percent))
+
+write.xlsx(waze.latest, "waze_latest.xlsx", row.names = FALSE)
+
+gs_auth(new_user = TRUE)
+
+gs_upload("waze_latest.xlsx", sheet_title = "Waze over Last 10 Hours")
+
+
+
+
+
   
